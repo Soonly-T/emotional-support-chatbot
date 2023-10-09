@@ -64,7 +64,7 @@ palm.configure(api_key="AIzaSyDH2zCYkM1UWxJeJ9KniUdHY337CdHOJ1k")
 
 # See the model's latest response in the `last` field:
 
-response = palm.chat(messages="hi, I want to tell you how I'm feeling. ",context="Be an empathetic person (which means absolutely no giving advice unless asked for) and listen to their problem. Encourage them to ",candidate_count=5, temperature=1)
+response = palm.chat(messages="Hi, I want to tell you how I'm feeling. ",context="Be an empathetic person (which means absolutely no giving advice unless asked for) and listen to their problem. Encourage them to express their feelings.",candidate_count=5, temperature=1)
 response.last=response.candidates[r(0,4)]
 print(response.last)
 for i in range(30):
