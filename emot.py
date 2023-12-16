@@ -2,89 +2,118 @@
 import google.generativeai as palm
 from random import randint as r
 from googletrans import Translator
+import json
 from json import dumps as json_dumps
-profanity_list = ['shit', 'fuck', 'bitch']
-# def censor_text(text, profanity_list, exceptions):
-    
-#     vowels = 'aeiou'
-#     words = text.split()
-#     for i in range(len(words)):
-#         word_lower = words[i].lower()
-#         if word_lower in profanity_list and word_lower not in exceptions:
-#             for j in range(len(words[i])):
-#                 if words[i][j].lower() in vowels:
-#                     words[i] = words[i][:j] + '*' + words[i][j+1:]
-#                     break
-#     return ' '.join(words)
-
-#   # Add any words you want to censor here
-# exceptions = ['exception1', "motherfucker"]  # Add any words you want to exclude from censoring here
-# text = "This is a test sentence with shit and fuck"
-# censored_text = censor_text(text, profanity_list, exceptions)
-# print(censored_text)
-
-
-
+import os
+import permissions
+# Configuration
 palm.configure(api_key="AIzaSyDH2zCYkM1UWxJeJ9KniUdHY337CdHOJ1k")
-
-# models = [m for m in palm.list_models() if 'generateText' in m.supported_generation_methods]
-# model = models[0].name
-# print(model)
-
-# completion = palm.generate_text(
-#     model=model,
-#     # prompt=text,
-#     prompt=f"generate a sympathetic response to \"{text}\" and you want to know more about their issue",
-#     temperature=0.5     ,
-#     # The maximum length of the response
-#     max_output_tokens=800,
-# )
-
-# print(completion.result)
+translator = Translator()
+lang='en'
+DEFAULT="Hi, I want to tell you how I'm feeling."
+# # Reading history
 
 
+# Initial setup
 
+context= "Empathize and listen without offering unsolicited advice or tips. Support them in expressing feelings. If asked, assist in understanding their emotions."
 
+def main():
+    # permissions.request_admin_permissions()
+    # os.system('cls' if os.name == 'nt' else 'clear')
+    global starter
+    starter=""
 
-# Create a new conversation
-# response = palm.chat(
-#     messages=[{'content':'Hello! How are you today?'}],
-#     context="You are an empathetic person and want to truly understand what the user is feeling",
-#     candidate_count=4
-# )
-
-
-# print(response.candidates)
-
-# Last contains the model's response:
-
-
-# Add to the existing conversation by sending a reply
-# usr_input=input("You:")
-
-# See the model's latest response in the `last` field:
-
-response = palm.chat(messages="Hi, I want to tell you how I'm feeling. ",context="Be an empathetic person (which means absolutely no giving advice unless asked for) and listen to their problem. Encourage them to express their feelings.",candidate_count=5, temperature=1)
-response.last=response.candidates[r(0,4)]
-print(response.last)
-for i in range(30):
-
-    translator = Translator()
-    usr_input = input("\nEnter your response:\n")
-    usr_input = str(translator.translate(usr_input, dest='en').text)
-    print(usr_input)
-    if usr_input=="exit()":
-        break
-    if not usr_input.strip():
-        usr_input = "Tell me more."
-        
+    
+    # Generate initial response
+    global response
     try:
-        response = response.reply(usr_input)
+        with open('hist.json', 'r') as f:
+            # Try to load the JSON data
+            data = json.load(f)
+    except (json.JSONDecodeError, FileNotFoundError):
+        # If an error occurs, set data to None
+        data = None
+
+
+    starter=DEFAULT if data is None else translate(input("Continue Chatting:\n"))
+    if starter.lower().strip()=="exit()":
+        exit()
+    if starter.lower() =="reset()" or starter.lower().strip()=="clear()":
+            reset()
+            print("Cleared")
+            main()
+    if data is not None:
+        data.append({"author": "user", "content": f"{starter}"})
+        starter=data
+    print("\n")
+    response = palm.chat(messages=starter, context=context, candidate_count=5, temperature=1)
+    response.last = response.candidates[r(0,len(response.candidates)-1)]
+    print(translate(response.last))
+
+    # Chat loop
+    for i in range(50):
+        
+        user_message = get_input()
+        if user_message.lower() == "exit()":
+            break
+        if user_message.lower() =="reset()" or user_message.lower()=="clear()":
+            reset()
+            print("Cleared")
+            main()
+            break
+    
+        bot_message = reply(user_message)
+        print(bot_message)
+
+
+    # Your history list
+    history = response.messages
+    for item in history:
+        if item['author'] == '0':
+            item['author'] = 'user'
+        elif item['author'] == '1':
+            item['author'] = 'assistant'
+
+
+
+    # Write the history list into hist.json
+    with open('hist.json', 'w') as f:
+        json.dump(history, f,indent=4)
+
+
+    input("Press any key to exit...")
+def reset():
+    with open('hist.json', 'w') as f:
+        pass
+    
+def translate(phr):
+    global lang
+    return translator.translate(phr, dest=lang).text
+
+def translate_en(phr):
+    return translator.translate(phr, dest="en").text
+    
+def get_input():
+    while True:
+        user_input = input("\nEnter your response:\n").strip()
+        if user_input:
+            return translate_en(user_input)
+        else:
+            print(f"Make sure to write something")
+
+    
+
+def reply(user_input):
+    global response
+    try:
+        response = response.reply(user_input)
+        
     except Exception as e:
         print(f"Error:{e}")
+        exit()
     else:
-        print(f"\nReply:\n{response.last}")
-history=json_dumps(response.messages,indent=4)
-print(history)
+        return (f"\nReply:\n{str(translate(response.last))}")
 
-input("Press any key to exit...")
+if __name__ == "__main__":
+    main()
